@@ -141,7 +141,9 @@ export default function App() {
         body: JSON.stringify({ email, password })
       })
 
+      console.log('Auth request sent', endpoint)
       const data = await res.json()
+      console.log('Auth response', { status: res.status, data })
       
       if (!res.ok) {
         setAuthError(data.error || 'Authentication failed')

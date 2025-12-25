@@ -152,31 +152,43 @@ export async function POST(request) {
 
     // Auth endpoints
     if (pathname === '/api/auth/signup') {
-      const supabase = createSupabaseServer()
-      const { data, error } = await supabase.auth.signUp({
-        email: body.email,
-        password: body.password
-      })
-      
-      if (error) {
-        return handleCORS(NextResponse.json({ error: error.message }, { status: 400 }))
+      try {
+        const supabase = createSupabaseServer()
+        const { data, error } = await supabase.auth.signUp({
+          email: body.email,
+          password: body.password
+        })
+
+        if (error) {
+          console.error('/api/auth/signup supabase error', error)
+          return handleCORS(NextResponse.json({ error: error.message }, { status: 400 }))
+        }
+
+        return handleCORS(NextResponse.json({ user: data.user }))
+      } catch (signupError) {
+        console.error('SIGNUP handler error:', signupError)
+        return handleCORS(NextResponse.json({ error: signupError.message, stack: signupError.stack }, { status: 500 }))
       }
-      
-      return handleCORS(NextResponse.json({ user: data.user }))
     }
 
     if (pathname === '/api/auth/signin') {
-      const supabase = createSupabaseServer()
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: body.email,
-        password: body.password
-      })
-      
-      if (error) {
-        return handleCORS(NextResponse.json({ error: error.message }, { status: 400 }))
+      try {
+        const supabase = createSupabaseServer()
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: body.email,
+          password: body.password
+        })
+
+        if (error) {
+          console.error('/api/auth/signin supabase error', error)
+          return handleCORS(NextResponse.json({ error: error.message }, { status: 400 }))
+        }
+
+        return handleCORS(NextResponse.json({ user: data.user }))
+      } catch (signinError) {
+        console.error('SIGNIN handler error:', signinError)
+        return handleCORS(NextResponse.json({ error: signinError.message, stack: signinError.stack }, { status: 500 }))
       }
-      
-      return handleCORS(NextResponse.json({ user: data.user }))
     }
 
     if (pathname === '/api/auth/google') {
