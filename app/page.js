@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { toast } from '@/hooks/use-toast'
 
 export default function App() {
   const [user, setUser] = useState(null)
@@ -274,12 +275,63 @@ export default function App() {
       })
 
       const data = await res.json()
+      if (!res.ok) {
+        const err = data?.error || 'Chat API error'
+        throw new Error(err)
+      }
+
+      if (!data?.content) {
+        throw new Error('Empty response from assistant')
+      }
+
       setMessages(prev => [...prev, { role: 'assistant', content: data.content }])
     } catch (error) {
+      console.error('Chat send error:', error)
+      // show toast and append an assistant error reply with retry metadata
+      const errorMsg = 'Sorry, I encountered an error. Tap retry.'
       setMessages(prev => [...prev, { 
         role: 'assistant', 
-        content: 'Sorry, I encountered an error. Please try again.' 
+        content: errorMsg,
+        _failed: true,
+        _originalUserMessage: userMessage
       }])
+      // show toast (client-only hook)
+      try {
+        toast({ title: 'Chat failed', description: error.message || 'Network or server error' })
+      } catch {}
+    } finally {
+      setChatLoading(false)
+    }
+  }
+
+  async function resendMessage(originalUserMessage, failedIndex) {
+    if (chatLoading) return
+    setChatLoading(true)
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: [...messages.filter(m => !m._failed), originalUserMessage], sessionId })
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data?.error || 'Chat API error')
+      if (!data?.content) throw new Error('Empty response from assistant')
+
+      // Replace the failed assistant message (the last assistant message) with the new content
+      setMessages(prev => {
+        const next = [...prev]
+        // find index of the failed assistant message matching originalUserMessage
+        const idx = next.findIndex(m => m._failed && m._originalUserMessage?.content === originalUserMessage.content)
+        if (idx !== -1) {
+          next[idx] = { role: 'assistant', content: data.content }
+        } else {
+          next.push({ role: 'assistant', content: data.content })
+        }
+        return next
+      })
+    } catch (error) {
+      console.error('Resend error:', error)
+      toast({ title: 'Retry failed', description: error.message || 'Please try again later' })
     } finally {
       setChatLoading(false)
     }
@@ -617,6 +669,13 @@ export default function App() {
                         }`}
                       >
                         <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                        {msg._failed && (
+                          <div className="mt-2 flex gap-2">
+                            <Button size="sm" variant="outline" onClick={() => resendMessage(msg._originalUserMessage, idx)}>
+                              Retry
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}
