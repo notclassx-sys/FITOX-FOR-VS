@@ -60,10 +60,8 @@ export async function OPTIONS() {
 
 export async function GET(request) {
   const { searchParams, pathname } = new URL(request.url)
-
   try {
-    const db = await connectDB()
-    // Auth endpoints
+    // Auth endpoints (do not require DB)
     if (pathname === '/api/auth/user') {
       const supabase = createSupabaseServer()
       const { data: { user }, error } = await supabase.auth.getUser()
@@ -86,8 +84,9 @@ export async function GET(request) {
       ))
     }
 
-    // Get tasks
+    // Get tasks (requires DB)
     if (pathname === '/api/tasks') {
+      const db = await connectDB()
       const tasks = await db.collection('tasks')
         .find({ userId: user.id })
         .sort({ created_at: -1 })
@@ -97,6 +96,7 @@ export async function GET(request) {
 
     // Get dashboard stats
     if (pathname === '/api/stats') {
+      const db = await connectDB()
       const tasks = await db.collection('tasks').find({ userId: user.id }).toArray()
       const completedTasks = tasks.filter(t => t.status).length
       const pendingTasks = tasks.filter(t => !t.status).length
@@ -124,6 +124,7 @@ export async function GET(request) {
 
     // Get chat history
     if (pathname === '/api/messages') {
+      const db = await connectDB()
       const sessionId = searchParams.get('sessionId') || 'default'
       const messages = await db.collection('messages')
         .find({ userId: user.id, sessionId })
@@ -147,7 +148,6 @@ export async function POST(request) {
   const { pathname } = new URL(request.url)
 
   try {
-    const db = await connectDB()
     const body = await request.json()
 
     // Auth endpoints
@@ -230,6 +230,7 @@ export async function POST(request) {
 
     // Create task
     if (pathname === '/api/tasks') {
+      const db = await connectDB()
       const task = {
         id: uuidv4(),
         userId: user.id,
@@ -249,6 +250,8 @@ export async function POST(request) {
     if (pathname === '/api/chat') {
       try {
         const { messages: chatMessages, sessionId = 'default' } = body
+
+        const db = await connectDB()
 
         console.log('API /api/chat called', {
           userId: user?.id,
