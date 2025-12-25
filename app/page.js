@@ -21,6 +21,7 @@ export default function App() {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('login')
+  const [authLoading, setAuthLoading] = useState(false)
   const supabase = createClient()
 
   // Dashboard state
@@ -129,9 +130,10 @@ export default function App() {
   }
 
   async function handleAuth(e) {
+    if (authLoading) return
     if (e && e.preventDefault) e.preventDefault()
-    console.log('handleAuth called', { email, authMode })
     setAuthError('')
+    setAuthLoading(true)
     
     try {
       const endpoint = authMode === 'signin' ? '/api/auth/signin' : '/api/auth/signup'
@@ -193,7 +195,7 @@ export default function App() {
     } catch (err) {
       console.error('Sign out error', err)
     }
-  }
+      setAuthLoading(false)
 
   async function handleAddTask(e) {
     e.preventDefault()
@@ -835,10 +837,10 @@ export default function App() {
 
                   <Button
                     type="submit"
-                    onClick={handleAuth}
-                    className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                    disabled={authLoading}
+                    className={`w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 ${authLoading ? 'opacity-60 pointer-events-none' : ''}`}
                   >
-                    {authMode === 'signin' ? 'Sign In' : 'Sign Up'}
+                    {authLoading ? 'Signing in...' : (authMode === 'signin' ? 'Sign In' : 'Sign Up')}
                   </Button>
                 </form>
 
