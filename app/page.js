@@ -197,6 +197,8 @@ export default function App() {
     }
       setAuthLoading(false)
 
+  }
+
   async function handleAddTask(e) {
     e.preventDefault()
     
