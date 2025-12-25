@@ -129,7 +129,8 @@ export default function App() {
   }
 
   async function handleAuth(e) {
-    e.preventDefault()
+    if (e && e.preventDefault) e.preventDefault()
+    console.log('handleAuth called', { email, authMode })
     setAuthError('')
     
     try {
@@ -181,10 +182,15 @@ export default function App() {
   }
 
   async function handleSignOut() {
-    await fetch('/api/auth/signout', { method: 'POST' })
-    await supabase.auth.signOut()
-    setUser(null)
-    setActiveTab('login')
+    console.log('handleSignOut called')
+    try {
+      await fetch('/api/auth/signout', { method: 'POST' })
+      await supabase.auth.signOut()
+      setUser(null)
+      setActiveTab('login')
+    } catch (err) {
+      console.error('Sign out error', err)
+    }
   }
 
   async function handleAddTask(e) {
@@ -827,6 +833,7 @@ export default function App() {
 
                   <Button
                     type="submit"
+                    onClick={handleAuth}
                     className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
                   >
                     {authMode === 'signin' ? 'Sign In' : 'Sign Up'}
