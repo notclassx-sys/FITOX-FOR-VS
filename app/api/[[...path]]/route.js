@@ -60,9 +60,9 @@ export async function OPTIONS() {
 
 export async function GET(request) {
   const { searchParams, pathname } = new URL(request.url)
-  const db = await connectDB()
 
   try {
+    const db = await connectDB()
     // Auth endpoints
     if (pathname === '/api/auth/user') {
       const supabase = createSupabaseServer()
@@ -145,9 +145,9 @@ export async function GET(request) {
 
 export async function POST(request) {
   const { pathname } = new URL(request.url)
-  const db = await connectDB()
 
   try {
+    const db = await connectDB()
     const body = await request.json()
 
     // Auth endpoints
@@ -173,6 +173,10 @@ export async function POST(request) {
 
     if (pathname === '/api/auth/signin') {
       try {
+        console.log('SIGNIN handler env', {
+          SUPABASE_URL: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+          SUPABASE_KEY: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+        })
         const supabase = createSupabaseServer()
         const { data, error } = await supabase.auth.signInWithPassword({
           email: body.email,
@@ -296,9 +300,9 @@ export async function POST(request) {
 
 export async function PUT(request) {
   const { pathname } = new URL(request.url)
-  const db = await connectDB()
 
   try {
+    const db = await connectDB()
     const supabase = createSupabaseServer()
     const { data: { user } } = await supabase.auth.getUser()
 
@@ -344,9 +348,9 @@ export async function PUT(request) {
 
 export async function DELETE(request) {
   const { pathname } = new URL(request.url)
-  const db = await connectDB()
 
   try {
+    const db = await connectDB()
     const supabase = createSupabaseServer()
     const { data: { user } } = await supabase.auth.getUser()
 
