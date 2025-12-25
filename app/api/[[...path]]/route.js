@@ -231,34 +231,45 @@ export async function POST(request) {
 
     // AI Chat
     if (pathname === '/api/chat') {
-      const { messages: chatMessages, sessionId = 'default' } = body
-      
-      // Get user stats for context
-      const tasks = await db.collection('tasks').find({ userId: user.id }).toArray()
-      const userContext = {
-        completedTasks: tasks.filter(t => t.status).length,
-        pendingTasks: tasks.filter(t => !t.status).length,
-        streak: 1 // Simplified
-      }
+      try {
+        const { messages: chatMessages, sessionId = 'default' } = body
 
-      const aiResponse = await generateChatResponse(chatMessages, userContext)
-      
-      // Save to database
-      const messageDoc = {
-        id: uuidv4(),
-        userId: user.id,
-        sessionId,
-        message: chatMessages[chatMessages.length - 1].content,
-        response: aiResponse.content,
-        source: aiResponse.source,
-        created_at: new Date().toISOString()
-      }
-      await db.collection('messages').insertOne(messageDoc)
+        console.log('API /api/chat called', {
+          userId: user?.id,
+          sessionId,
+          messages: Array.isArray(chatMessages) ? chatMessages.length : 0
+        })
 
-      return handleCORS(NextResponse.json({ 
-        content: aiResponse.content,
-        source: aiResponse.source
-      }))
+        // Get user stats for context
+        const tasks = await db.collection('tasks').find({ userId: user.id }).toArray()
+        const userContext = {
+          completedTasks: tasks.filter(t => t.status).length,
+          pendingTasks: tasks.filter(t => !t.status).length,
+          streak: 1 // Simplified
+        }
+
+        const aiResponse = await generateChatResponse(chatMessages, userContext)
+
+        // Save to database
+        const messageDoc = {
+          id: uuidv4(),
+          userId: user.id,
+          sessionId,
+          message: chatMessages[chatMessages.length - 1]?.content,
+          response: aiResponse?.content,
+          source: aiResponse?.source,
+          created_at: new Date().toISOString()
+        }
+        await db.collection('messages').insertOne(messageDoc)
+
+        return handleCORS(NextResponse.json({
+          content: aiResponse?.content,
+          source: aiResponse?.source
+        }))
+      } catch (chatError) {
+        console.error('CHAT handler error:', chatError)
+        return handleCORS(NextResponse.json({ error: chatError.message, stack: chatError.stack }, { status: 500 }))
+      }
     }
 
     return handleCORS(NextResponse.json({ error: 'Not found' }, { status: 404 }))
