@@ -766,7 +766,7 @@ export default function App() {
 
         {/* Login/Signup */}
         {activeTab === 'login' && !user && (
-          <div className="max-w-md mx-auto mt-12 animate-in fade-in duration-500">
+          <div className="max-w-md mx-auto mt-12 mb-24 animate-in fade-in duration-500">
             <Card>
               <CardHeader className="text-center">
                 <div className="w-16 h-16 bg-gradient-to-br from-purple-600 to-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
@@ -919,7 +919,7 @@ export default function App() {
         </nav>
       )}
 
-      {!user && (
+      {!user && activeTab !== 'login' && (
         <nav style={{ paddingBottom: 'env(safe-area-inset-bottom)' }} className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg z-50">
           <div className="flex justify-center items-center h-16">
             <button
