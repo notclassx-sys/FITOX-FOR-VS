@@ -144,11 +144,20 @@ export default function App() {
       })
 
       console.log('Auth request sent', endpoint)
-      const data = await res.json()
-      console.log('Auth response', { status: res.status, data })
-      
+      let data = null
+      let text = null
+      try {
+        data = await res.json()
+      } catch (parseErr) {
+        try {
+          text = await res.text()
+        } catch {}
+      }
+      console.log('Auth response', { status: res.status, data, text })
+
       if (!res.ok) {
-        setAuthError(data.error || 'Authentication failed')
+        const msg = data?.error || data?.message || text || `Request failed with status ${res.status}`
+        setAuthError(msg)
         return
       }
 
@@ -164,7 +173,10 @@ export default function App() {
       setEmail('')
       setPassword('')
     } catch (error) {
-      setAuthError('Network error. Please try again.')
+      console.error('handleAuth error:', error)
+      setAuthError(error?.message || 'Network error. Please try again.')
+    } finally {
+      setAuthLoading(false)
     }
   }
 
@@ -195,8 +207,6 @@ export default function App() {
     } catch (err) {
       console.error('Sign out error', err)
     }
-      setAuthLoading(false)
-
   }
 
   async function handleAddTask(e) {
