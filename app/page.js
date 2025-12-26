@@ -75,14 +75,35 @@ export default function App() {
 
   async function checkAuth() {
     const { data: { session } } = await supabase.auth.getSession()
-    setUser(session?.user || null)
+    const sessionUser = session?.user || null
+    // Fallback: if supabase has no session but we previously saved a user locally, restore it
+    if (!sessionUser && typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('fito_user')
+        if (saved) {
+          const u = JSON.parse(saved)
+          setUser(u)
+          setActiveTab('dashboard')
+          setLoading(false)
+          const { data: { subscription } } = supabase.auth.onAuthStateChange((_, s) => setUser(s?.user || u))
+          return () => subscription.unsubscribe()
+        }
+      } catch {}
+    }
+
+    setUser(sessionUser)
     // If a session exists, make dashboard the active view (home)
-    if (session?.user) setActiveTab('dashboard')
+    if (sessionUser) setActiveTab('dashboard')
     setLoading(false)
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         setUser(session?.user || null)
+        // keep local cache in sync
+        try {
+          if (session?.user) localStorage.setItem('fito_user', JSON.stringify(session.user))
+          else localStorage.removeItem('fito_user')
+        } catch {}
       }
     )
 
@@ -91,7 +112,7 @@ export default function App() {
 
   async function loadStats() {
     try {
-      const res = await fetch('/api/stats')
+      const res = await fetch('/api/stats', { credentials: 'same-origin' })
       if (res.ok) {
         const data = await res.json()
         setStats(data)
@@ -103,7 +124,7 @@ export default function App() {
 
   async function loadTasks() {
     try {
-      const res = await fetch('/api/tasks')
+      const res = await fetch('/api/tasks', { credentials: 'same-origin' })
       if (res.ok) {
         const data = await res.json()
         setTasks(data.tasks || [])
@@ -115,7 +136,7 @@ export default function App() {
 
   async function loadChatHistory() {
     try {
-      const res = await fetch(`/api/messages?sessionId=${sessionId}`)
+      const res = await fetch(`/api/messages?sessionId=${sessionId}`, { credentials: 'same-origin' })
       if (res.ok) {
         const data = await res.json()
         const formattedMessages = []
@@ -165,6 +186,7 @@ export default function App() {
       // If server returned user, set it immediately to avoid a blank dashboard
       if (data.user) {
         setUser(data.user)
+        try { localStorage.setItem('fito_user', JSON.stringify(data.user)) } catch {}
         setActiveTab('dashboard')
       } else {
         // Fallback: refresh auth state from Supabase
@@ -205,6 +227,7 @@ export default function App() {
       await supabase.auth.signOut()
       setUser(null)
       setActiveTab('login')
+      try { localStorage.removeItem('fito_user') } catch {}
     } catch (err) {
       console.error('Sign out error', err)
     }
@@ -227,12 +250,24 @@ export default function App() {
       } else {
         const res = await fetch('/api/tasks', {
           method: 'POST',
+          credentials: 'same-origin',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(taskForm)
         })
         if (res.ok) {
-          loadTasks()
-          loadStats()
+          const data = await res.json()
+          // If DB was down, API returns saved: false — optimistically add task
+          if (data.saved === false) {
+            toast({ title: 'Offline', description: 'Task saved locally (server unavailable)' })
+            setTasks(prev => [data.task, ...prev])
+            setStats(prev => ({ ...prev, pendingTasks: prev.pendingTasks + 1 }))
+          } else {
+            loadTasks()
+            loadStats()
+          }
+        } else {
+          const text = await res.text().catch(() => '')
+          toast({ title: 'Error', description: `Create task failed: ${text || res.status}` })
         }
       }
       
