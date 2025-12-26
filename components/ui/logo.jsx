@@ -1,17 +1,21 @@
 "use client"
-import React from 'react'
+import React, { useRef, useEffect } from 'react'
 
 export default function Logo({ className }) {
-  const handleError = (e) => {
-    try {
-      e.currentTarget.onerror = null
-      e.currentTarget.src = '/logo.svg'
-    } catch (err) {
-      // ignore
-    }
-  }
+  const imgRef = useRef(null)
 
-  return (
-    <img src="/logo.png" alt="FITOX" className={className} onError={handleError} />
-  )
+  useEffect(() => {
+    const el = imgRef.current
+    if (!el) return
+    const onErr = () => {
+      try {
+        el.onerror = null
+        el.src = '/logo.svg'
+      } catch (err) {}
+    }
+    el.addEventListener('error', onErr)
+    return () => el.removeEventListener('error', onErr)
+  }, [])
+
+  return <img ref={imgRef} src="/logo.png" alt="FITOX" className={className} />
 }

@@ -1,5 +1,6 @@
 import './globals.css'
 import Link from 'next/link'
+export const dynamic = 'force-dynamic'
 import Logo from '../components/ui/logo'
 
 export const metadata = {
