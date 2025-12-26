@@ -22,6 +22,8 @@ const nextConfig = {
     maxInactiveAge: 10000,
     pagesBufferLength: 2,
   },
+  // Increase static page generation timeout to avoid build failures when external services are slow.
+  staticPageGenerationTimeout: 120,
   async headers() {
     return [
       {
