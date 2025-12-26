@@ -25,6 +25,16 @@ async function connectDB() {
   }
 }
 
+// Safe connect: return null if DB is unavailable (avoid throwing 500s)
+async function tryConnectDB() {
+  try {
+    return await connectDB()
+  } catch (err) {
+    console.warn('MongoDB not available:', err.message || err)
+    return null
+  }
+}
+
 function createSupabaseServer() {
   const cookieStore = cookies()
   return createServerClient(
