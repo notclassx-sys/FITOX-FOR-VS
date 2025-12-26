@@ -94,9 +94,12 @@ export async function GET(request) {
       ))
     }
 
-    // Get tasks (requires DB)
+    // Get tasks (requires DB) - return empty list if DB unavailable
     if (pathname === '/api/tasks') {
-      const db = await connectDB()
+      const db = await tryConnectDB()
+      if (!db) {
+        return handleCORS(NextResponse.json({ tasks: [] }))
+      }
       const tasks = await db.collection('tasks')
         .find({ userId: user.id })
         .sort({ created_at: -1 })
@@ -106,8 +109,11 @@ export async function GET(request) {
 
     // Get dashboard stats
     if (pathname === '/api/stats') {
-      const db = await connectDB()
-      const tasks = await db.collection('tasks').find({ userId: user.id }).toArray()
+      const db = await tryConnectDB()
+      let tasks = []
+      if (db) {
+        tasks = await db.collection('tasks').find({ userId: user.id }).toArray()
+      }
       const completedTasks = tasks.filter(t => t.status).length
       const pendingTasks = tasks.filter(t => !t.status).length
       
@@ -122,7 +128,13 @@ export async function GET(request) {
       )
       const streak = completedToday ? (completedYesterday ? 2 : 1) : 0
 
-      const quote = await generateMotivationalQuote()
+      let quote = '""'
+      try {
+        quote = await generateMotivationalQuote()
+      } catch (err) {
+        console.warn('Quote generation failed:', err?.message || err)
+        quote = 'Keep going — you got this!'
+      }
 
       return handleCORS(NextResponse.json({
         completedTasks,
@@ -134,8 +146,11 @@ export async function GET(request) {
 
     // Get chat history
     if (pathname === '/api/messages') {
-      const db = await connectDB()
+      const db = await tryConnectDB()
       const sessionId = searchParams.get('sessionId') || 'default'
+      if (!db) {
+        return handleCORS(NextResponse.json({ messages: [] }))
+      }
       const messages = await db.collection('messages')
         .find({ userId: user.id, sessionId })
         .sort({ created_at: 1 })
@@ -238,9 +253,9 @@ export async function POST(request) {
       ))
     }
 
-    // Create task
+    // Create task - if DB unavailable, return task locally (not persisted)
     if (pathname === '/api/tasks') {
-      const db = await connectDB()
+      const db = await tryConnectDB()
       const task = {
         id: uuidv4(),
         userId: user.id,
@@ -252,8 +267,12 @@ export async function POST(request) {
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       }
-      await db.collection('tasks').insertOne(task)
-      return handleCORS(NextResponse.json({ task }))
+      if (db) {
+        try { await db.collection('tasks').insertOne(task) } catch (err) { console.warn('Insert task failed:', err) }
+        return handleCORS(NextResponse.json({ task }))
+      }
+      // DB down: return success with saved: false to avoid client 500
+      return handleCORS(NextResponse.json({ task, saved: false }))
     }
 
     // AI Chat
@@ -261,35 +280,45 @@ export async function POST(request) {
       try {
         const { messages: chatMessages, sessionId = 'default' } = body
 
-        const db = await connectDB()
+        const db = await tryConnectDB()
 
         console.log('API /api/chat called', {
           userId: user?.id,
           sessionId,
-          messages: Array.isArray(chatMessages) ? chatMessages.length : 0
+          messages: Array.isArray(chatMessages) ? chatMessages.length : 0,
+          db: !!db
         })
 
-        // Get user stats for context
-        const tasks = await db.collection('tasks').find({ userId: user.id }).toArray()
+        // Get user stats for context (fallback to empty if no DB)
+        let tasks = []
+        if (db) {
+          try { tasks = await db.collection('tasks').find({ userId: user.id }).toArray() } catch (err) { console.warn('Failed to read tasks for chat context:', err) }
+        }
         const userContext = {
           completedTasks: tasks.filter(t => t.status).length,
           pendingTasks: tasks.filter(t => !t.status).length,
-          streak: 1 // Simplified
+          streak: 1
         }
 
         const aiResponse = await generateChatResponse(chatMessages, userContext)
 
-        // Save to database
-        const messageDoc = {
-          id: uuidv4(),
-          userId: user.id,
-          sessionId,
-          message: chatMessages[chatMessages.length - 1]?.content,
-          response: aiResponse?.content,
-          source: aiResponse?.source,
-          created_at: new Date().toISOString()
+        // Save to database if available
+        if (db) {
+          try {
+            const messageDoc = {
+              id: uuidv4(),
+              userId: user.id,
+              sessionId,
+              message: chatMessages[chatMessages.length - 1]?.content,
+              response: aiResponse?.content,
+              source: aiResponse?.source,
+              created_at: new Date().toISOString()
+            }
+            await db.collection('messages').insertOne(messageDoc)
+          } catch (err) {
+            console.warn('Failed to save chat message:', err)
+          }
         }
-        await db.collection('messages').insertOne(messageDoc)
 
         return handleCORS(NextResponse.json({
           content: aiResponse?.content,
