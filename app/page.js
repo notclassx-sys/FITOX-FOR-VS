@@ -59,7 +59,6 @@ export default function App() {
   })
   const [showTaskDialog, setShowTaskDialog] = useState(false)
   const [editingTask, setEditingTask] = useState(null)
-  const [taskLoading, setTaskLoading] = useState(false)
 
   useEffect(() => {
     checkAuth()
@@ -98,8 +97,6 @@ export default function App() {
       }
     } catch (error) {
       console.error('Error loading stats:', error)
-      // Provide a friendly fallback quote so UI doesn't stay on "Loading..."
-      setStats(prev => ({ ...prev, quote: 'Keep going — small steps every day.' }))
     }
   }
 
@@ -214,12 +211,7 @@ export default function App() {
 
   async function handleAddTask(e) {
     e.preventDefault()
-    if (!taskForm.title || !taskForm.title.trim()) {
-      toast({ title: 'Missing title', description: 'Please enter a task name.' })
-      return
-    }
-
-    setTaskLoading(true)
+    
     try {
       if (editingTask) {
         const res = await fetch(`/api/tasks/${editingTask.id}`, {
@@ -227,15 +219,9 @@ export default function App() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(taskForm)
         })
-        const data = await res.json().catch(() => null)
         if (res.ok) {
-          await loadTasks()
+          loadTasks()
           setEditingTask(null)
-          setShowTaskDialog(false)
-        } else {
-          const message = data?.error || data?.message || `Request failed with status ${res.status}`
-          toast({ title: 'Could not update task', description: message })
-          return
         }
       } else {
         const res = await fetch('/api/tasks', {
@@ -243,19 +229,13 @@ export default function App() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(taskForm)
         })
-        const data = await res.json().catch(() => null)
         if (res.ok) {
-          await loadTasks()
-          await loadStats()
-          setShowTaskDialog(false)
-        } else {
-          const message = data?.error || data?.message || `Request failed with status ${res.status}`
-          toast({ title: 'Could not create task', description: message })
-          return
+          loadTasks()
+          loadStats()
         }
       }
-
-      // reset form only on success
+      
+      setShowTaskDialog(false)
       setTaskForm({
         title: '',
         category: 'Personal',
@@ -264,9 +244,6 @@ export default function App() {
       })
     } catch (error) {
       console.error('Error saving task:', error)
-      toast({ title: 'Task save failed', description: error?.message || 'Network or server error' })
-    } finally {
-      setTaskLoading(false)
     }
   }
 
@@ -1045,8 +1022,8 @@ export default function App() {
               />
             </div>
 
-            <Button type="submit" className="w-full bg-gradient-to-r from-purple-600 to-blue-600" disabled={taskLoading}>
-              {taskLoading ? 'Saving...' : (editingTask ? 'Update Task' : 'Create Task')}
+            <Button type="submit" className="w-full bg-gradient-to-r from-purple-600 to-blue-600">
+              {editingTask ? 'Update Task' : 'Create Task'}
             </Button>
           </form>
         </DialogContent>
