@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 export default function NotFound() {
   return (
     <div style={{minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
