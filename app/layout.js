@@ -12,14 +12,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body>
-        <header className="w-full border-b bg-white/80 backdrop-blur dark:bg-slate-900/75 dark:border-slate-700">
-          <div className="mx-auto max-w-5xl px-4 py-3 flex items-center gap-3">
-            <Link href="/" className="inline-flex items-center gap-3">
-              <Logo className="h-8 w-auto" />
-              <span className="font-semibold text-lg">FITOX</span>
-            </Link>
-          </div>
-        </header>
+        {/* top header removed per request */}
 
         <main className="min-h-screen">
           {children}
