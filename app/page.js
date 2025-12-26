@@ -74,6 +74,22 @@ export default function App() {
   }, [user, activeTab])
 
   async function checkAuth() {
+    // If redirected back from OAuth provider, let Supabase finish the flow
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href)
+      if (url.searchParams.has('code') || url.searchParams.has('access_token') || window.location.hash.includes('access_token')) {
+        try {
+          if (supabase?.auth?.getSessionFromUrl) {
+            await supabase.auth.getSessionFromUrl({ storeSession: true })
+          }
+          // Clean URL to remove OAuth params
+          try { window.history.replaceState({}, document.title, window.location.pathname) } catch (e) {}
+        } catch (err) {
+          console.warn('Supabase finish OAuth failed:', err)
+        }
+      }
+    }
+
     const { data: { session } } = await supabase.auth.getSession()
     const sessionUser = session?.user || null
     // Fallback: if supabase has no session but we previously saved a user locally, restore it
