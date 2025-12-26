@@ -344,7 +344,7 @@ export async function PUT(request) {
   const { pathname } = new URL(request.url)
 
   try {
-    const db = await connectDB()
+    const db = await tryConnectDB()
     const supabase = createSupabaseServer()
     const { data: { user } } = await supabase.auth.getUser()
 
@@ -364,7 +364,13 @@ export async function PUT(request) {
         ...body,
         updated_at: new Date().toISOString()
       }
-      
+
+      if (!db) {
+        // DB unavailable: return optimistic response without persisting
+        const task = { id: taskId, userId: user.id, ...updateData }
+        return handleCORS(NextResponse.json({ task, saved: false }))
+      }
+
       const result = await db.collection('tasks').updateOne(
         { id: taskId, userId: user.id },
         { $set: updateData }
@@ -392,7 +398,7 @@ export async function DELETE(request) {
   const { pathname } = new URL(request.url)
 
   try {
-    const db = await connectDB()
+    const db = await tryConnectDB()
     const supabase = createSupabaseServer()
     const { data: { user } } = await supabase.auth.getUser()
 
@@ -406,6 +412,10 @@ export async function DELETE(request) {
     // Delete task
     if (pathname.startsWith('/api/tasks/')) {
       const taskId = pathname.split('/').pop()
+      if (!db) {
+        // DB unavailable: return optimistic deletion result (not persisted)
+        return handleCORS(NextResponse.json({ success: true, deleted: false }))
+      }
       const result = await db.collection('tasks').deleteOne({
         id: taskId,
         userId: user.id
@@ -415,7 +425,7 @@ export async function DELETE(request) {
         return handleCORS(NextResponse.json({ error: 'Task not found' }, { status: 404 }))
       }
 
-      return handleCORS(NextResponse.json({ success: true }))
+      return handleCORS(NextResponse.json({ success: true, deleted: true }))
     }
 
     return handleCORS(NextResponse.json({ error: 'Not found' }, { status: 404 }))

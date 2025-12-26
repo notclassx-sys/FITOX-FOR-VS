@@ -224,7 +224,7 @@ export default function App() {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}`
+          redirectTo: process.env.NEXT_PUBLIC_BASE_URL || `${window.location.origin}`
         }
       })
       
@@ -256,12 +256,23 @@ export default function App() {
       if (editingTask) {
         const res = await fetch(`/api/tasks/${editingTask.id}`, {
           method: 'PUT',
+          credentials: 'same-origin',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(taskForm)
         })
         if (res.ok) {
-          loadTasks()
-          setEditingTask(null)
+          const data = await res.json().catch(() => ({}))
+          if (data.saved === false) {
+            // DB down: update local list optimistically
+            toast({ title: 'Offline', description: 'Task updated locally (server unavailable)' })
+            setTasks(prev => prev.map(t => t.id === editingTask.id ? { ...t, ...taskForm, updated_at: new Date().toISOString() } : t))
+            setEditingTask(null)
+            setStats(prev => ({ ...prev }))
+          } else {
+            loadTasks()
+            setEditingTask(null)
+            loadStats()
+          }
         }
       } else {
         const res = await fetch('/api/tasks', {
@@ -303,12 +314,21 @@ export default function App() {
     try {
       const res = await fetch(`/api/tasks/${task.id}`, {
         method: 'PUT',
+        credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: !task.status })
       })
       if (res.ok) {
-        loadTasks()
-        loadStats()
+        const data = await res.json().catch(() => ({}))
+        if (data.saved === false) {
+          // DB down: update locally
+          setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: !t.status, updated_at: new Date().toISOString() } : t))
+          setStats(prev => ({ ...prev, completedTasks: prev.completedTasks + (task.status ? -1 : 1) }))
+          toast({ title: 'Offline', description: 'Task status updated locally' })
+        } else {
+          loadTasks()
+          loadStats()
+        }
       }
     } catch (error) {
       console.error('Error updating task:', error)
@@ -319,10 +339,18 @@ export default function App() {
     if (!confirm('Delete this task?')) return
     
     try {
-      const res = await fetch(`/api/tasks/${taskId}`, { method: 'DELETE' })
+      const res = await fetch(`/api/tasks/${taskId}`, { method: 'DELETE', credentials: 'same-origin' })
       if (res.ok) {
-        loadTasks()
-        loadStats()
+        const data = await res.json().catch(() => ({}))
+        if (data.deleted === false) {
+          // DB down: remove locally
+          setTasks(prev => prev.filter(t => t.id !== taskId))
+          setStats(prev => ({ ...prev, pendingTasks: Math.max(0, prev.pendingTasks - 1) }))
+          toast({ title: 'Offline', description: 'Task removed locally (server unavailable)' })
+        } else {
+          loadTasks()
+          loadStats()
+        }
       }
     } catch (error) {
       console.error('Error deleting task:', error)
