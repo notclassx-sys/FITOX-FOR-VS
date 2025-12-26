@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -960,6 +960,9 @@ export default function App() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{editingTask ? 'Edit Task' : 'Create New Task'}</DialogTitle>
+            <DialogDescription>
+              {editingTask ? 'Update the fields below to edit this task.' : 'Fill out the form to create a new task.'}
+            </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleAddTask} className="space-y-4">
             <div className="space-y-2">
